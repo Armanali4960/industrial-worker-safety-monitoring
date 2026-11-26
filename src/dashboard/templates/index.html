@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Industrial Safety Monitor</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1220;color:#e5e7eb;font-family:Arial,sans-serif;padding:25px}
+h1{color:#38bdf8}
+nav{margin:20px 0}
+nav a{color:#38bdf8;text-decoration:none;margin-right:22px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:15px}
+.card{background:#172338;padding:20px;border-radius:12px;margin-bottom:15px}
+.number{font-size:30px;font-weight:bold;color:#38bdf8;margin-top:10px}
+.upload{background:#172338;padding:22px;border-radius:12px;margin:25px 0}
+button{background:#0284c7;color:white;border:0;padding:12px 20px;border-radius:7px;cursor:pointer}
+input{margin:12px 0}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:12px;border-bottom:1px solid #334155}
+.safe{color:#4ade80;font-weight:bold}
+.bad{color:#f87171;font-weight:bold}
+.alert{border-left:5px solid #ef4444}
+.small{color:#94a3b8;font-size:13px}
+.message{background:#334155;padding:12px;border-radius:8px;margin:12px 0}
+@media(max-width:650px){body{padding:12px}table{font-size:12px}th,td{padding:7px}}
+</style>
+</head>
+<body>
+
+<h1>Industrial Worker Safety Monitor</h1>
+<p class="small">NVIDIA Jetson Orin | YOLOv8 | PPE Compliance Monitoring</p>
+
+<nav>
+<a href="/">Dashboard</a>
+<a href="/history">History</a>
+</nav>
+
+{% with messages = get_flashed_messages() %}
+{% for message in messages %}
+<div class="message">{{ message }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="cards">
+<div class="card">Files Analyzed<div class="number">{{ total_files }}</div></div>
+<div class="card">Workers Detected<div class="number">{{ total_workers }}</div></div>
+<div class="card">Safety Alerts<div class="number">{{ total_alerts }}</div></div>
+</div>
+
+<div class="upload">
+<h2>Upload Image or Video</h2>
+<p class="small">Supported: JPG, JPEG, PNG, MP4, AVI, MOV, MKV</p>
+<form method="POST" enctype="multipart/form-data">
+<input type="file" name="media" accept="image/*,video/*" required>
+<br>
+<button type="submit">Upload and Analyze</button>
+</form>
+</div>
+
+
+{% if not events %}
+<div class="card">
+<h2 class="safe">SYSTEM READY</h2>
+<p>Waiting for your first image or video upload...</p>
+<p class="small">Upload media to begin PPE compliance analysis.</p>
+</div>
+{% endif %}
+
+<h2>Latest Analyzed Result</h2>
+{% if events %}
+{% set latest = events[0] %}
+<div class="card">
+<h3>{{ latest.source }}</h3>
+<p>Analysis time: {{ latest.timestamp }}</p>
+{% if latest.media_type == 'image' and latest.image %}
+<img src="/images/{{ latest.image }}" style="width:100%;max-width:900px;border-radius:10px">
+{% elif latest.media_type == 'video' and latest.video %}
+<video controls style="width:100%;max-width:900px" src="/videos/{{ latest.video }}"></video>
+{% endif %}
+<p>{{ latest.note }}</p>
+</div>
+{% else %}
+<div class="card">Upload an image or video to see the analyzed result here.</div>
+{% endif %}
+
+<h2>Worker Safety Status</h2>
+<div class="card">
+{% set workers_found = namespace(value=false) %}
+<table>
+<tr>
+<th>Worker ID</th><th>File</th>
+<th>Helmet</th><th>Vest</th><th>Gloves</th>
+<th>Boots</th><th>Goggles</th><th>Status</th>
+</tr>
+{% for event in events %}
+{% for worker in event.workers %}
+{% set workers_found.value = true %}
+<tr>
+<td>{{ worker.worker_id }}</td>
+<td>{{ event.source }}</td>
+<td>{{ worker.get('ppe_status', {}).get('helmet', 'UNCERTAIN') }}</td>
+<td>{{ worker.get('ppe_status', {}).get('vest', 'UNCERTAIN') }}</td>
+<td>{{ worker.get('ppe_status', {}).get('gloves', 'UNCERTAIN') }}</td>
+<td>{{ worker.get('ppe_status', {}).get('boots', 'UNCERTAIN') }}</td>
+<td>{{ worker.get('ppe_status', {}).get('goggles', 'UNCERTAIN') }}</td>
+<td class="{{ 'bad' if worker.status == 'VIOLATION' else 'safe' }}">{{ worker.status }}</td>
+</tr>
+{% endfor %}
+{% endfor %}
+{% if not workers_found.value %}
+<tr><td colspan="8">No worker records yet. Upload an image or video.</td></tr>
+{% endif %}
+</table>
+</div>
+
+<h2>Latest Safety Alerts</h2>
+{% set alerts_found = namespace(value=false) %}
+{% for event in events %}
+{% if event.alert %}
+{% set alerts_found.value = true %}
+<div class="card alert">
+<h3 class="bad">⚠ Safety violation detected</h3>
+<p><b>File:</b> {{ event.source }}</p>
+<p><b>Time:</b> {{ event.timestamp }}</p>
+{% for worker in event.workers %}
+{% if worker.status == 'VIOLATION' %}
+<p class="bad">{{ worker.worker_id }} — {{ worker.missing_ppe|join(', ') }}</p>
+{% endif %}
+{% endfor %}
+<p class="small">{{ event.note }}</p>
+</div>
+{% endif %}
+{% endfor %}
+{% if not alerts_found.value %}
+<div class="card">No safety alerts recorded yet.</div>
+{% endif %}
+
+<p class="small">Worker-to-PPE matching is approximate. A green status means no violation was detected by this prototype, not guaranteed compliance.</p>
+</body>
+</html>

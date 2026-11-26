@@ -1,0 +1,24 @@
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.env
+.env.*
+!.env.example
+*.log
+dataset/
+runs/
+output/
+*.mp4
+*.avi
+*.pt
+*.engine
+*.onnx
+.DS_Store
+*.backup
+*.before-*
+*.home-backup
+*.quickfix-backup
+t-inspect-1.0 filesrc

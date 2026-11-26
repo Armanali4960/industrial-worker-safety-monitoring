@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Safety Monitoring History</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1220;color:#e5e7eb;font-family:Arial,sans-serif;padding:24px}
+.container{max-width:1100px;margin:auto}
+a{color:#38bdf8;text-decoration:none}
+.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.subtitle{color:#94a3b8}
+.session{background:#172338;border:1px solid #293951;padding:20px;margin:20px 0;border-radius:14px}
+.session-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.meta{color:#94a3b8;font-size:14px;margin:8px 0 16px}
+.workers{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:15px 0}
+.worker{background:#0f1b2e;border:1px solid #293951;padding:15px;border-radius:10px}
+.worker h3{margin:0 0 12px}
+.ppe{display:flex;justify-content:space-between;gap:10px;margin:8px 0;font-size:13px}
+.badge{padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold;display:inline-block}
+.red{background:#451d28;color:#fca5a5}
+.green{background:#143b30;color:#86efac}
+.yellow{background:#493719;color:#fde68a}
+.grey{background:#263449;color:#cbd5e1}
+.evidence{width:100%;max-width:850px;max-height:480px;object-fit:contain;border-radius:10px;background:#080e18;margin-top:12px}
+.button{display:inline-block;background:#1d4ed8;color:white;padding:9px 14px;border-radius:8px;margin-top:10px}
+.empty{background:#172338;padding:22px;border-radius:12px;color:#94a3b8}
+@media(max-width:600px){body{padding:14px}.session{padding:14px}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div>
+    <h1>Safety Monitoring History</h1>
+    <p class="subtitle">Previous worker safety analysis sessions</p>
+  </div>
+  <a href="/">← Back to Dashboard</a>
+</div>
+
+{% set ns = namespace(session_no=0, total_workers=0) %}
+
+{% for event in events %}
+  {% if event.timestamp and event.source and (event.workers or event.image or event.video) %}
+    {% set ns.session_no = ns.session_no + 1 %}
+    {% set ns.total_workers = ns.total_workers + (event.workers|length) %}
+
+    <div class="session">
+      <div class="session-head">
+        <h2>Analysis Session {{ "%03d"|format(ns.session_no) }}</h2>
+
+        {% if event.alert %}
+          <span class="badge red">SAFETY ALERT</span>
+        {% else %}
+          <span class="badge green">NO DETECTED ALERT</span>
+        {% endif %}
+      </div>
+
+      <div class="meta">
+        {{ event.timestamp }} &nbsp; | &nbsp;
+        {{ "Image Analysis" if event.media_type == "image" else "Video Analysis" }}
+        <br>Uploaded file: {{ event.source }}
+        <br>Workers detected: {{ event.workers|length }}
+      </div>
+
+      <h3>Worker Records</h3>
+
+      {% if event.workers %}
+        <div class="workers">
+        {% for worker in event.workers %}
+          <div class="worker">
+            <h3>Worker {{ "%03d"|format(loop.index) }}</h3>
+
+            {% set statuses = worker.get('ppe_status', {}).values()|list %}
+            {% if 'MISSING' in statuses or worker.status == 'VIOLATION' %}
+              <span class="badge red">VIOLATION</span>
+            {% elif 'UNCERTAIN' in statuses or worker.status == 'NEEDS REVIEW' %}
+              <span class="badge yellow">NEEDS REVIEW</span>
+            {% else %}
+              <span class="badge green">NO DETECTED VIOLATION</span>
+            {% endif %}
+
+            {% set ppe = worker.get('ppe_status', {}) %}
+            {% for category in ['helmet','vest','gloves','boots','goggles'] %}
+              {% set result = ppe.get(category, 'UNCERTAIN') %}
+              <div class="ppe">
+                <span>{{ category|title }}</span>
+                {% if result == 'MISSING' %}
+                  <span class="badge red">MISSING</span>
+                {% elif result == 'DETECTED' %}
+                  <span class="badge green">DETECTED</span>
+                {% else %}
+                  <span class="badge yellow">UNCERTAIN</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            {% if worker.missing_ppe %}
+              <p class="meta">Missing: {{ worker.missing_ppe|join(', ') }}</p>
+            {% else %}
+              <p class="meta">No missing PPE detected</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        </div>
+      {% else %}
+        <p class="meta">No workers were detected in this session.</p>
+      {% endif %}
+
+      <h3>Analysis Evidence</h3>
+      {% if event.media_type == 'image' and event.image %}
+        <img class="evidence" src="/images/{{ event.image }}" alt="Annotated analysis image">
+      {% elif event.media_type == 'video' and event.video %}
+        <video class="evidence" controls src="/videos/{{ event.video }}"></video>
+      {% else %}
+        <p class="meta">Evidence file is not available.</p>
+      {% endif %}
+
+      {% if event.note %}
+        <p class="meta">{{ event.note }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endfor %}
+
+{% if ns.session_no == 0 %}
+  <div class="empty">No completed analysis sessions available yet. Upload an image or video first.</div>
+{% endif %}
+
+<p class="meta">Worker numbers are assigned separately within each analysis session. They do not represent permanent worker identities. PPE association is approximate.</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+camera_id: camera_01
+
+zones:
+  - id: zone_01
+    name: Machine Area
+    required_ppe:
+      - helmet
+      - safety_vest
+    polygon:
+      - [100, 100]
+      - [500, 100]
+      - [500, 400]
+      - [100, 400]
+
+  - id: zone_02
+    name: Assembly Area
+    required_ppe:
+      - safety_vest
+    polygon:
+      - [550, 100]
+      - [900, 100]
+      - [900, 450]
+      - [550, 450]

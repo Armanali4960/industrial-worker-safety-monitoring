@@ -1,0 +1,36 @@
+project:
+  name: industrial_worker_safety_monitor
+  version: 1.0
+
+hardware:
+  platform: jetson_orin
+  deepstream_version: "9.2"
+
+model:
+  framework: ultralytics
+  architecture: yolov8n
+  input_width: 640
+  input_height: 640
+  classes:
+    - person
+    - helmet
+    - safety_vest
+
+tracking:
+  enabled: true
+  tracker: nvtracker
+
+safety:
+  enabled: true
+  zones_file: config/zones.yaml
+  require_person_tracking: true
+  violation_confirmation_frames: 5
+
+gpio:
+  enabled: false
+  mode: simulation
+
+output:
+  save_video: true
+  save_images: true
+  save_events: true
